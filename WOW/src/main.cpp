@@ -1,33 +1,58 @@
-#include <Arduino.h>
+// Include the necessary libraries
+#include "DHT.h"
 
-String inputString = "";      // a String to hold incoming data
-bool inputComplete = false;   // whether the string is complete
+// Define the GPIO pin connected to the DHT11 data pin
+#define DHTPIN 27
+
+// Define the type of DHT sensor
+#define DHTTYPE DHT11
+
+// Initialize the DHT sensor object
+DHT dht(DHTPIN, DHTTYPE);
 
 void setup() {
-  Serial.begin(9600);         // Start serial communication at 9600 baud
-  Serial.println("Enter text:");
+  // Start the serial communication
+  Serial.begin(9600);
+  Serial.println("DHT11 Test!");
+
+  // Initialize the DHT sensor
+  dht.begin();
 }
 
 void loop() {
-  // Check if input is complete
-  if (inputComplete) {
-    Serial.print("You entered: ");
-    Serial.println(inputString);
+  // Wait a few seconds between measurements.
+  delay(2000);
 
-    // Clear the input
-    inputString = "";
-    inputComplete = false;
+  // Read humidity
+  float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+  // Read temperature as Fahrenheit (isFahrenheit = true)
+  float f = dht.readTemperature(true);
+
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(h) || isnan(t) || isnan(f)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
   }
-}
 
-// This function is automatically called when new serial data arrives
-void serialEvent() {
-  while (Serial.available()) {
-    char inChar = (char)Serial.read();
-    inputString += inChar;
+  // Compute heat index in Fahrenheit (the default)
+  float hif = dht.computeHeatIndex(f, h);
+  // Compute heat index in Celsius (isFahrenheit = false)
+  float hic = dht.computeHeatIndex(t, h, false);
 
-    if (inChar == '\n') {  // End of input line
-      inputComplete = true;
-    }
-  }
+  // Print the results to the Serial Monitor
+  Serial.print("Humidity: ");
+  Serial.print(h);
+  Serial.print(" %\t");
+  Serial.print("Temperature: ");
+  Serial.print(t);
+  Serial.print(" *C ");
+  Serial.print(f);
+  Serial.print(" *F\t");
+  Serial.print("Heat index: ");
+  Serial.print(hic);
+  Serial.print(" *C ");
+  Serial.print(hif);
+  Serial.println(" *F");
 }
