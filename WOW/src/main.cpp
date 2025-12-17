@@ -5,8 +5,8 @@
 #include <DHT.h>
 
 // ----------- WiFi and Adafruit IO Setup ------------
-#define WLAN_SSID       "Justas's iPhone"        // your WiFi SSID
-#define WLAN_PASS       "testasss"      // your WiFi password
+#define WLAN_SSID       "Pasidaryk Pats"        // your WiFi SSID
+#define WLAN_PASS       "pasidaryk-pats"      // your WiFi password
 
 #define AIO_SERVER      "io.adafruit.com"
 #define AIO_SERVERPORT  1883
@@ -21,11 +21,10 @@ DHT dht(DHTPIN, DHTTYPE);
 // ----------- MQTT Setup ------------
 WiFiClient client;
 Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
+
 // Feeds (create them in Adafruit IO first!)
 Adafruit_MQTT_Publish temperatureFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/termometras-v1");
 Adafruit_MQTT_Publish humidityFeed    = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/dregme-v1");
-// Feeds (create them in Adafruit IO first!)
-
 
 void MQTT_connect();
 
@@ -59,6 +58,7 @@ void loop() {
     delay(2000);
     return;
   }
+  
   Serial.print("Humidity: ");
   Serial.print(humi);
   Serial.print("%  Temperature: ");
