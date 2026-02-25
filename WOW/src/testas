@@ -1,0 +1,144 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <Wire.h>
+
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#include <Adafruit_MQTT.h>
+#include <Adafruit_MQTT_Client.h>
+
+#include <DHT.h>
+
+// ---------------- WiFi ----------------
+#define WLAN_SSID "Pasidaryk Pats"
+#define WLAN_PASS "pasidaryk-pats"
+
+// ---------------- Adafruit IO ----------------
+#define AIO_SERVER     "io.adafruit.com"
+#define AIO_SERVERPORT 1883
+#define AIO_USERNAME   "JTRJTRJTR"
+#define AIO_KEY        ""
+
+// ---------------- DHT11 ----------------
+#define DHTPIN 4
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+// ---------------- OLED ----------------
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+#define OLED_ADDRESS 0x3D   // try 0x3C if this fails
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+bool oledOK = false;
+
+// ---------------- MQTT ----------------
+WiFiClient client;
+Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
+
+Adafruit_MQTT_Publish temperatureFeed(
+  &mqtt, AIO_USERNAME "/feeds/termometras-v1");
+
+Adafruit_MQTT_Publish humidityFeed(
+  &mqtt, AIO_USERNAME "/feeds/dregme-v1");
+
+void MQTT_connect();
+// ---------------- SETUP ----------------
+void setup() {
+  Serial.begin(115200);
+  delay(300);
+
+  Wire.begin(21, 22);
+
+  // OLED init
+  if (display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
+    oledOK = true;
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.println("OLED OK");
+    display.display();
+  } else {
+    Serial.println("OLED not detected");
+  }
+
+  // WiFi (with timeout)
+  WiFi.begin(WLAN_SSID, WLAN_PASS);
+  Serial.print("Connecting WiFi");
+
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi connected");
+    if (oledOK) {
+      display.println("WiFi OK");
+      display.display();
+    }
+  } else {
+    Serial.println("\nWiFi FAILED");
+  }
+
+  dht.begin();
+}
+
+// ---------------- LOOP ----------------
+void loop() {
+  MQTT_connect();
+
+  float humi = dht.readHumidity();
+  float tempC = dht.readTemperature();
+
+  if (isnan(humi) || isnan(tempC)) {
+    Serial.println("DHT read failed");
+    delay(2000);
+    return;
+  }
+
+  // OLED output
+  if (oledOK) {
+    display.clearDisplay();
+    display.setCursor(0, 0);
+
+    display.setTextSize(1);
+    display.println("ESP32 Weather");
+
+    display.setTextSize(2);
+    display.print("T:");
+    display.print(tempC, 1);
+    display.println("C");
+
+    display.print("H:");
+    display.print(humi, 1);
+    display.println("%");
+
+    display.display();
+  }
+
+  // MQTT publish (non-fatal)
+  if (mqtt.connected()) {
+    temperatureFeed.publish(tempC);
+    humidityFeed.publish(humi);
+  }
+
+  delay(5000);
+}
+
+// ---------------- MQTT CONNECT ----------------
+void MQTT_connect() {
+  if (mqtt.connected()) return;
+
+  Serial.print("MQTT...");
+  if (mqtt.connect() == 0) {
+    Serial.println("connected");
+  } else {
+    Serial.println("failed");
+    mqtt.disconnect();
+  }
+}
